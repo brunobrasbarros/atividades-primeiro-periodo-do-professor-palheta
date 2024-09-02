@@ -1,0 +1,188 @@
+from os import listdir,path,join
+from csv import reader
+
+# Input do caminho da pasta contendo os arquivos CSV
+caminho_pasta = input("Digite o caminho da pasta para lê-lo: ")
+pasta = listdir(caminho_pasta)
+resultado = open('resultado.txt', 'w', encoding='utf-8')
+
+# Dicionários para rastrear as aprovações de cada disciplina, os alunos aprovados em cada disciplina e os alunos matriculados em cada disciplina
+alunos_discips = {}  # Guarda a quantidade de disciplinas matriculadas por aluno
+alunos_aprovados_discips = {}  # Guarda a quantidade de disciplinas aprovadas por aluno
+disciplinas_aprovacoes = {}  # Guarda a quantidade de aprovações por disciplina
+alunos_medias = {}  # Guarda as médias de cada aluno em cada disciplina
+
+# Variáveis para rastrear a maior e a menor taxa de aprovação
+maior_taxa_aprovacao = float('-inf')
+menor_taxa_aprovacao = float('inf')
+disciplina_maior_taxa = ""
+disciplina_menor_taxa = ""
+
+# Variáveis para calcular a média global e o percentual de aprovação do professor
+total_alunos = 0
+total_media_global = 0
+total_aprovados_global = 0
+
+for arquivo in pasta:
+    endereco_ags = path.join(caminho_pasta, arquivo)
+    with open(endereco_ags, mode='r', encoding="utf-8") as arq:
+       
+        leitura = reader(arq, delimiter=',')
+        linhas = 0
+        soma_media = 0
+        alunos_aprovados = 0
+        maior_media = float('-inf')
+        menor_media = float('inf')
+        medias = []
+        alunos_mais_de_duas_disciplinas = 0
+        alunos_acima_media = 0
+        alunos_aprovados_todas_disciplinas = 0
+        
+        for coluna in leitura:
+            if linhas == 0:
+                # Primeira linha contém o código e nome da disciplina
+                codigo_disciplina = coluna[0]
+                nome_disciplina = ' '.join(coluna[1:])
+                linhas += 1
+            elif linhas == 1:
+                # Segunda linha contém os pesos e a nota mínima para aprovação
+                nota_minima = float(coluna[0])
+                primeiro_peso = float(coluna[1])
+                segundo_peso = float(coluna[2])
+                terceiro_peso = float(coluna[3])
+                linhas += 1
+            elif linhas >= 2:
+                # Linhas subsequentes contém os dados dos alunos
+                matricula = int(coluna[0])
+                nota1 = float(coluna[1])
+                nota2 = float(coluna[2])
+                nota3 = float(coluna[3])
+                media = (nota1 * primeiro_peso + nota2 * segundo_peso + nota3 * terceiro_peso) / (primeiro_peso + segundo_peso + terceiro_peso)
+                soma_media += media
+                medias.append(media)
+
+                # Guardar a média do aluno na disciplina
+                if matricula not in alunos_medias:
+                    alunos_medias[matricula] = {}
+                alunos_medias[matricula][nome_disciplina] = media
+
+                # Verificar se o aluno foi aprovado na disciplina
+                if media >= nota_minima:
+                    alunos_aprovados += 1
+                    if matricula in alunos_aprovados_discips:
+                        alunos_aprovados_discips[matricula] += 1
+                    else:
+                        alunos_aprovados_discips[matricula] = 1
+                
+                # Atualizar maior e menor média
+                if media > maior_media:
+                    maior_media = media
+                if media < menor_media:
+                    menor_media = media
+                linhas += 1
+                
+                # Contar a quantidade de disciplinas matriculadas por aluno
+                if matricula in alunos_discips:
+                    alunos_discips[matricula] += 1
+                else:
+                    alunos_discips[matricula] = 1
+        
+        quantidade_alunos = linhas - 2  # Subtrair as duas primeiras linhas (cabeçalho e pesos)
+        
+        # Calcular o percentual de aprovação na disciplina
+        if quantidade_alunos > 0:
+            percentual_aprovados = (alunos_aprovados / quantidade_alunos) * 100
+        else:
+            percentual_aprovados = 0
+        
+        # Verificar se a disciplina tem a maior ou menor taxa de aprovação
+        if percentual_aprovados > maior_taxa_aprovacao:
+            maior_taxa_aprovacao = percentual_aprovados
+            disciplina_maior_taxa = nome_disciplina
+        
+        if percentual_aprovados < menor_taxa_aprovacao:
+            menor_taxa_aprovacao = percentual_aprovados
+            disciplina_menor_taxa = nome_disciplina
+            
+        # Calcular a média da turma
+        if quantidade_alunos > 0:
+            media_turma = soma_media / quantidade_alunos
+        else:
+            media_turma = 0
+        
+        # Contar a quantidade de alunos com média acima da média da turma
+        alunos_acima_media = 0
+        for media in medias:
+            if media > media_turma:
+                alunos_acima_media += 1
+        
+        # Contar a quantidade de alunos matriculados em mais de duas disciplinas
+        for matriculas in alunos_discips.values():
+            if matriculas > 2:
+                alunos_mais_de_duas_disciplinas += 1   
+                
+        # Contar a quantidade de alunos aprovados em todas as disciplinas que estavam matriculados
+        alunos_aprovados_todas_disciplinas = 0
+        for matricula in alunos_discips:
+            total_disciplinas = alunos_discips[matricula]  
+            if matricula in alunos_aprovados_discips and alunos_aprovados_discips[matricula] == total_disciplinas:
+                alunos_aprovados_todas_disciplinas += 1  
+
+        if len(alunos_discips) > 0:
+            percentual_aprovados_todas_disciplinas = (alunos_aprovados_todas_disciplinas / len(alunos_discips)) * 100
+        else:
+            percentual_aprovados_todas_disciplinas = 0
+
+        # Atualizar variáveis globais
+        total_alunos += quantidade_alunos
+        total_media_global += soma_media
+        total_aprovados_global += alunos_aprovados
+
+        # Escrever estatísticas de cada disciplina
+        resultado.write(f"\nCódigo: {codigo_disciplina}\n")
+        resultado.write(f"Nome da disciplina: {nome_disciplina}\n")
+        resultado.write(f"Quantidade de alunos: {quantidade_alunos}\n")
+        resultado.write(f"Percentual de alunos aprovados: {percentual_aprovados:.2f}%\n")
+        
+        resultado.write(f"Média da turma: {media_turma:.2f}\n")
+        resultado.write(f"Quantidade de alunos com média acima da média da turma: {alunos_acima_media}\n")
+        
+        resultado.write(f"Maior média da turma: {maior_media:.2f}\n")
+        resultado.write(f"Menor média da turma: {menor_media:.2f}\n")
+
+# Calcular a média global e o percentual de aprovação do professor
+if total_alunos > 0:
+    media_global = total_media_global / total_alunos
+    percentual_aprovacao_global = (total_aprovados_global / total_alunos) * 100
+else:
+    media_global = 0
+    percentual_aprovacao_global = 0
+
+# Calcular estatísticas do aluno
+for aluno, disciplinas in alunos_medias.items():
+    
+    total_disciplinas = len(disciplinas)
+    
+    total_aprovacoes = sum(1 for media in disciplinas.values() if media >= nota_minima)
+    
+    taxa_aprovacao = (total_aprovacoes / total_disciplinas) * 100 if total_disciplinas > 0 else 0
+
+    melhor_disciplina = max(disciplinas, key=disciplinas.get)
+    pior_disciplina = min(disciplinas, key=disciplinas.get)
+
+    resultado.write(f"\nEstatísticas do Aluno {aluno}:\n")
+    resultado.write(f"Taxa de aprovação: {taxa_aprovacao:.2f}%\n")
+    resultado.write(f"Melhor disciplina: {melhor_disciplina} com média {disciplinas[melhor_disciplina]:.2f}\n")
+    resultado.write(f"Pior disciplina: {pior_disciplina} com média {disciplinas[pior_disciplina]:.2f}\n")
+
+# Escrever estatísticas globais
+resultado.write(f"\nQuantidade de alunos matriculados em mais de 2 disciplinas: {alunos_mais_de_duas_disciplinas}\n")
+resultado.write(f"Disciplina com a menor taxa de aprovação: {disciplina_menor_taxa} com {menor_taxa_aprovacao:.2f}%\n")
+resultado.write(f"Quantidade de alunos aprovados em todas as disciplinas: {alunos_aprovados_todas_disciplinas}\n")
+resultado.write(f"Percentual de alunos aprovados em todas as disciplinas: {percentual_aprovados_todas_disciplinas:.2f}%\n")
+resultado.write(f"Disciplina com a maior taxa de aprovação: {disciplina_maior_taxa} com {maior_taxa_aprovacao:.2f}%\n")
+resultado.write(f"Média global: {media_global:.2f}\n")
+resultado.write(f"Percentual de aprovação do professor: {percentual_aprovacao_global:.2f}%\n")
+
+#fim do codigo
+resultado.close()
